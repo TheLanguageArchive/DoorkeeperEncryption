@@ -21,6 +21,7 @@ import nl.mpi.tla.flat.deposit.action.encryption.EncryptionService;
 import nl.mpi.tla.flat.deposit.Context;
 import nl.mpi.tla.flat.deposit.DepositException;
 import nl.mpi.tla.flat.deposit.sip.Resource;
+import nl.mpi.tla.flat.deposit.sip.SIPInterface;
 
 import nl.mpi.tla.encryption.hcvault.HcVaultClient;
 
@@ -28,8 +29,14 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Set;
 import java.io.File;
+import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+
 import java.nio.file.Path;
+
 import java.security.GeneralSecurityException;
+
+import org.apache.commons.codec.digest.DigestUtils;
 
 /**
  * Doorkeeper action to encrypt resources marked for ingestion
@@ -50,15 +57,25 @@ public class EncryptResources extends AbstractAction {
     @Override
     public boolean perform(Context context) throws DepositException {
 
-        logger.debug("STARTING ENCRYPTION ACTION");
+        logger.info("STARTING ENCRYPTION ACTION");
 
-        String credentialsParam = this.getParameter("credentials");
-        String outputDirParam   = this.getParameter("outputDir");
+        String encryptionParam = this.getParameter("encryption", "./metadata/flat_encryption.json");
+        String credentialsParam  = this.getParameter("credentials");
 
-        EncryptionService encryptionService = new EncryptionService(credentialsParam, outputDirParam);
-        encryptionService.encrypt(context);
+        logger.info("FLAT ENCRYPTION PARAMS : ENCRYPTION: " + encryptionParam + ", CREDENTIALS: " + credentialsParam);
 
-        logger.debug("FINISHED ENCRYPTION ACTION");
+        try {
+
+            EncryptionService encryptionService = new EncryptionService(encryptionParam, credentialsParam);
+            encryptionService.encrypt(context);
+
+            logger.info("FINISHED ENCRYPTION ACTION");
+
+        } catch (IOException e) {
+
+            logger.info("ENCRYPTION ACTION FAILED");
+            logger.info(e.toString());
+        }
 
         return true;
     }

@@ -29,6 +29,14 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import org.slf4j.LoggerFactory;
 
 /**
  * Service for easy manipulation of resources
@@ -38,6 +46,7 @@ import java.io.IOException;
  */
 public class ResourceService {
 
+    private static final org.slf4j.Logger logger = LoggerFactory.getLogger(ResourceService.class.getName());
     /**
      * Fetch all the resources inside context
      */
@@ -65,33 +74,13 @@ public class ResourceService {
     /**
      * transforming outputDir param in flat-deposit.xml into a usable Path object
      */
-    public static Path getOutputDir(String outputDirParam) {
+    public static Path getResourcesDir(String resourcesDirParam) {
 
         return Paths
-            .get(outputDirParam)
+            .get(resourcesDirParam)
             .toFile()
             .getAbsoluteFile()
             .toPath();
-    }
-
-    /**
-     * Create output directory, return true if created or false if dir already exists
-     */
-    public static boolean createOutputDir(Path outputDir) {
-
-        try {
-
-            if (Files.exists(outputDir)) {
-                return false;
-            }
-
-            Files.createDirectories(outputDir);
-
-            return true;
-
-        } catch (IOException e) {
-            return false;
-        }
     }
 
     /**
@@ -104,5 +93,14 @@ public class ResourceService {
             .toFile()
             .getAbsoluteFile()
             .toPath();
+    }
+
+    public static FilesMarked getFilesMarkedForEncryption(String encryptionParam) throws IOException {
+
+        byte[] encoded = Files.readAllBytes(Paths.get(encryptionParam));
+        String json    = new String(encoded, StandardCharsets.UTF_8);
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        return objectMapper.readValue(json, FilesMarked.class);
     }
 }

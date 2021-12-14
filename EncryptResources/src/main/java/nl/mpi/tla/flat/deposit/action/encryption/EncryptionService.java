@@ -33,6 +33,7 @@ import java.io.File;
 import java.io.IOException;
 
 import java.nio.file.Path;
+import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.Files;
 
@@ -48,39 +49,66 @@ public class EncryptionService {
 
     private String kekUri = "hcvault://flat_mpi";
     private Manager manager;
+    private FilesMarked filesMarkedForEncryption;
     private Path credentials;
-    private Path outputDir;
+    private Path resourcesDir;
 
     /**
      * Logger instance
      */
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(EncryptionService.class.getName());
 
-    public EncryptionService(String credentialsParam, String outputDirParam) throws DepositException {
+    public EncryptionService(String encryptionParam, String credentialsParam) throws DepositException {
 
-        logger.debug("CREATING ENCRYPTION SERVICE");
+        logger.info("CREATING ENCRYPTION SERVICE");
 
-        this.credentials = this.getCredentials(credentialsParam);
-        this.outputDir   = this.createOutputDir(outputDirParam);
-        this.manager     = this.getManager();
+        this.filesMarkedForEncryption = this.getFilesMarkedForEncryption(encryptionParam);
+        this.credentials              = this.getCredentials(credentialsParam);
+        this.manager                  = this.getManager();
     }
 
-    public void encrypt(Context context) throws DepositException {
+    public void encrypt(Context context) throws DepositException, IOException {
 
         Set<Resource> resources = ResourceService.fetchAll(context);
 
         for (Resource res : resources) {
 
-            logger.debug("ENCRYPTING FILE: " + res.getFile().getName());
+            Path inputFile = res.getPath();
 
-            Path path = res.getPath();
-            Path filename = path.getFileName();
-            File keyFile = this.outputDir.resolve(filename + "-keyset.json").toFile();
-            File outputFile = this.outputDir.resolve(filename + ".enc").toFile();
+            logger.info("SHOULD FILE: " + inputFile + " BE ENCRYPTED?");
 
-            this.encryptFile(keyFile, path.toFile(), outputFile);
+            if (!this.filesMarkedForEncryption.isMarked(inputFile.toFile())) {
 
-            logger.debug("FILE WAS SUCCESSFULLY ENCRYPTED: " + res.getFile().getName());
+                logger.info("FILE: " + inputFile + " SHOULD NOT BE ENCRYPTED");
+                continue;
+            }
+
+            logger.info("ENCRYPTING FILE: " + inputFile);
+
+            Path keyFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".keyset.json");
+            Path outputFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".enc");
+
+            this.encryptFile(keyFile.toFile(), inputFile.toFile(), outputFile.toFile());
+
+            Path srcFile = outputFile;
+            Path dstFile = inputFile;
+
+            // deleting original resource
+            // so we can replace it with the newly encrypted resource
+            try {
+                Files.deleteIfExists(inputFile);
+            } catch (NoSuchFileException e) {}
+
+            Files.move(srcFile, dstFile);
+
+            logger.info("ENCRYPTED FILE: " + dstFile + ", KEY FILE: " + keyFile);
+            logger.info("FILE WAS SUCCESSFULLY ENCRYPTED: " + outputFile);
+
+            // cleaning up
+            try {
+                Files.deleteIfExists(outputFile);
+            } catch (NoSuchFileException e) {}
+
         }
     }
 
@@ -88,11 +116,13 @@ public class EncryptionService {
 
         try {
 
-            logger.debug("Encrypting file " + inputFile.getName());
+            logger.info("Encrypting file " + inputFile.getName());
             this.manager.encrypt(keyFile, inputFile, outputFile);
 
         } catch (GeneralSecurityException | IOException e) {
-            logger.debug("Could not encrypt file " + inputFile.getName());
+
+            logger.info("Could not encrypt file " + inputFile.getName());
+            logger.info("ERR: " + e.toString());
         }
     }
 
@@ -100,13 +130,13 @@ public class EncryptionService {
 
         try {
 
-            logger.debug("Connection encryption manager for KEK: " + this.kekUri);
+            logger.info("Connection encryption manager for KEK: " + this.kekUri);
             return new Manager(this.kekUri, this.credentials.toString());
 
         } catch (GeneralSecurityException e) {
 
-            logger.debug("Failed to connect to encryption manager for KEK: " + this.kekUri);
-            logger.debug(e.toString());
+            logger.info("Failed to connect to encryption manager for KEK: " + this.kekUri);
+            logger.info(e.toString());
 
             throw new DepositException("Could not connect to encryption manager");
         }
@@ -118,26 +148,35 @@ public class EncryptionService {
     private Path getCredentials(String credentialsParam) throws DepositException {
 
         Path credentials = ResourceService.getCredentials(credentialsParam);
-        logger.debug("ENCRYPTION CREDENTIALS PARAMETER: " + credentialsParam);
+        logger.info("ENCRYPTION CREDENTIALS PARAMETER: " + credentialsParam);
 
         return credentials;
     }
 
     /**
-     * Create output directory where the encrypted resources are stored
+     * Get resources dir
      */
-    private Path createOutputDir(String outputDirParam) throws DepositException {
+    private Path getResourcesDir(String resourcesDirParam) throws DepositException {
 
-        Path outputDir = ResourceService.getOutputDir(outputDirParam);
-        boolean created = ResourceService.createOutputDir(outputDir);
+        Path resourcesDir = ResourceService.getResourcesDir(resourcesDirParam);
+        logger.info("ENCRYPTION RESOURCES DIR PARAMETER: " + resourcesDirParam);
 
-        logger.debug("ENCRYPTION OUTPUT DIR PARAMETER: " + outputDirParam);
-        logger.debug("ENCRYPTION OUTPUT DIR CREATED: " + (true == created ? "YES" : "NO"));
+        return resourcesDir;
+    }
 
-        if (false == created) {
-            throw new DepositException("ENCRYPTION OUTPUT DIR COULD NOT BE CREATED");
+    /**
+     * getting files marked for encryption
+     */
+    private FilesMarked getFilesMarkedForEncryption(String encryptionParam) {
+
+        logger.info("GETTING FILES MARKED FOR ENCRYPTION");
+
+        try {
+            return ResourceService.getFilesMarkedForEncryption(encryptionParam);
+        } catch (IOException e) {
+            logger.info("NO FILES MARKED FOR ENCRYPTION");
         }
 
-        return outputDir;
+        return new FilesMarked();
     }
 }
