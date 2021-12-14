@@ -21,7 +21,7 @@ import nl.mpi.tla.flat.deposit.DepositException;
 import nl.mpi.tla.flat.deposit.sip.Resource;
 import nl.mpi.tla.flat.deposit.sip.SIPInterface;
 
-import nl.mpi.tla.encryption.Manager;
+import nl.mpi.tla.encryption.StreamingManager;
 
 import org.slf4j.LoggerFactory;
 
@@ -48,7 +48,7 @@ import java.security.GeneralSecurityException;
 public class EncryptionService {
 
     private String kekUri = "hcvault://flat_mpi";
-    private Manager manager;
+    private StreamingManager manager;
     private FilesMarked filesMarkedForEncryption;
     private Path credentials;
     private Path resourcesDir;
@@ -126,12 +126,12 @@ public class EncryptionService {
         }
     }
 
-    private Manager getManager() throws DepositException {
+    private StreamingManager getManager() throws DepositException {
 
         try {
 
             logger.info("Connection encryption manager for KEK: " + this.kekUri);
-            return new Manager(this.kekUri, this.credentials.toString());
+            return new StreamingManager(this.kekUri, this.credentials.toString());
 
         } catch (GeneralSecurityException e) {
 
