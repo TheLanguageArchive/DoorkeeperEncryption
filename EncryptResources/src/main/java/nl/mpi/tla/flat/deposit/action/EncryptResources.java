@@ -16,32 +16,20 @@
  */
 package nl.mpi.tla.flat.deposit.action;
 
-import nl.mpi.tla.flat.deposit.action.encryption.ResourceService;
 import nl.mpi.tla.flat.deposit.action.encryption.EncryptionService;
 import nl.mpi.tla.flat.deposit.Context;
 import nl.mpi.tla.flat.deposit.DepositException;
-import nl.mpi.tla.flat.deposit.sip.Resource;
-import nl.mpi.tla.flat.deposit.sip.SIPInterface;
 import nl.mpi.tla.flat.deposit.util.Saxon;
-import nl.mpi.tla.encryption.hcvault.HcVaultClient;
 
 import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Set;
-import java.io.File;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.GeneralSecurityException;
-
-import org.apache.commons.codec.digest.DigestUtils;
 
 import net.sf.saxon.s9api.XdmItem;
-import net.sf.saxon.s9api.XdmValue;
 
 /**
  * Doorkeeper action to encrypt resources marked for ingestion
@@ -106,6 +94,7 @@ public class EncryptResources extends AbstractAction {
 
                         logger.debug("rollback action[" + this.getName() + "] event[" + type + "] removing removing key [" + keyFile.toString() + "], encrypted file [" + originalFile.toString() + "] and restoring original file [" + backupFile.toString() + "]");
 
+                        // clearing all the encryption files
                         Files.deleteIfExists(keyFile);
                         Files.deleteIfExists(originalFile);
                         Files.move(backupFile, originalFile);

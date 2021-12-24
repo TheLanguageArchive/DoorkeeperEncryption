@@ -31,8 +31,8 @@ import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.nio.file.Files;
-
 import java.security.GeneralSecurityException;
 
 
@@ -95,7 +95,7 @@ public class EncryptionService  {
                 // saving original resource to allow for rollback to revert to original if something goes wrong
                 context.registerRollbackEvent(action, "encryption.restore.original", "key", keyFile.toString(), "original", originalFile.toString(), "backup", backupFile.toString());
 
-                Files.copy(originalFile, backupFile);
+                Files.copy(originalFile, backupFile, StandardCopyOption.COPY_ATTRIBUTES);
 
                 // replacing original resource with encrypted one
                 Files.deleteIfExists(originalFile);
