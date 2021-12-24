@@ -16,19 +16,15 @@
  */
 package nl.mpi.tla.flat.deposit.action.encryption;
 
+import nl.mpi.tla.flat.deposit.action.ActionInterface;
 import nl.mpi.tla.flat.deposit.Context;
 import nl.mpi.tla.flat.deposit.DepositException;
 import nl.mpi.tla.flat.deposit.sip.Resource;
-import nl.mpi.tla.flat.deposit.sip.SIPInterface;
-
 import nl.mpi.tla.encryption.StreamingManager;
 
 import org.slf4j.LoggerFactory;
 
 import java.util.Set;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-
 import java.io.File;
 import java.io.IOException;
 
@@ -39,19 +35,19 @@ import java.nio.file.Files;
 
 import java.security.GeneralSecurityException;
 
+
 /**
  * Service for easy manipulation of resources
  *
  * @author  Ibrahim Abdullah <ibrahim.abdullah@mpi.nl>
  * @package Doorkeeper
  */
-public class EncryptionService {
+public class EncryptionService  {
 
     private String kekUri = "hcvault://flat_mpi";
     private StreamingManager manager;
     private FilesMarked filesMarkedForEncryption;
     private Path credentials;
-    private Path resourcesDir;
 
     /**
      * Logger instance
@@ -67,7 +63,7 @@ public class EncryptionService {
         this.manager                  = this.getManager();
     }
 
-    public void encrypt(Context context) throws DepositException, IOException {
+    public void encrypt(Context context, ActionInterface action) throws DepositException, IOException {
 
         Set<Resource> resources = ResourceService.fetchAll(context);
 
@@ -85,28 +81,32 @@ public class EncryptionService {
 
             logger.info("ENCRYPTING FILE: " + inputFile);
 
-            Path keyFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".keyset.json");
-            Path outputFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".enc");
-
-            this.encryptFile(keyFile.toFile(), inputFile.toFile(), outputFile.toFile());
-
-            Path srcFile = outputFile;
-            Path dstFile = inputFile;
-
-            // deleting original resource
-            // so we can replace it with the newly encrypted resource
             try {
-                Files.deleteIfExists(inputFile);
-            } catch (NoSuchFileException e) {}
 
-            Files.move(srcFile, dstFile);
+                Path keyFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".keyset.json");
+                Path outputFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".enc");
 
-            logger.info("ENCRYPTED FILE: " + dstFile + ", KEY FILE: " + keyFile);
-            logger.info("FILE WAS SUCCESSFULLY ENCRYPTED: " + outputFile);
+                this.encryptFile(keyFile.toFile(), inputFile.toFile(), outputFile.toFile());
 
-            // cleaning up
-            try {
+                Path encryptedFile = outputFile;
+                Path originalFile = inputFile;
+                Path backupFile = Paths.get(originalFile.toFile().getAbsolutePath() + ".orig");
+
+                // saving original resource to allow for rollback to revert to original if something goes wrong
+                context.registerRollbackEvent(action, "encryption.restore.original", "key", keyFile.toString(), "original", originalFile.toString(), "backup", backupFile.toString());
+
+                Files.copy(originalFile, backupFile);
+
+                // replacing original resource with encrypted one
+                Files.deleteIfExists(originalFile);
+                Files.move(encryptedFile, originalFile);
+
+                logger.info("ENCRYPTED FILE: " + originalFile + ", KEY FILE: " + keyFile);
+                logger.info("FILE WAS SUCCESSFULLY ENCRYPTED: " + outputFile);
+
+                // cleaning up by removing encrypted output file
                 Files.deleteIfExists(outputFile);
+
             } catch (NoSuchFileException e) {}
 
         }
@@ -151,17 +151,6 @@ public class EncryptionService {
         logger.info("ENCRYPTION CREDENTIALS PARAMETER: " + credentialsParam);
 
         return credentials;
-    }
-
-    /**
-     * Get resources dir
-     */
-    private Path getResourcesDir(String resourcesDirParam) throws DepositException {
-
-        Path resourcesDir = ResourceService.getResourcesDir(resourcesDirParam);
-        logger.info("ENCRYPTION RESOURCES DIR PARAMETER: " + resourcesDirParam);
-
-        return resourcesDir;
     }
 
     /**
