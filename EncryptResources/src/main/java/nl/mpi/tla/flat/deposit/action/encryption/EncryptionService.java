@@ -63,6 +63,34 @@ public class EncryptionService  {
         this.manager                  = this.getManager();
     }
 
+    public void cleanup(Context context, ActionInterface action) throws DepositException, IOException {
+
+        Set<Resource> resources = ResourceService.fetchAll(context);
+
+        for (Resource res : resources) {
+
+            Path inputFile = res.getPath();
+
+            if (!this.filesMarkedForEncryption.isMarked(inputFile.toFile())) {
+
+                // file isn't marked for encryption
+                // no cleanup necessary
+                continue;
+            }
+
+            try {
+
+                Path originalFile = inputFile;
+                Path backupFile = Paths.get(originalFile.toFile().getAbsolutePath() + ".orig");
+
+                // cleaning up original file
+                Files.deleteIfExists(backupFile);
+
+            } catch (NoSuchFileException e) {}
+
+        }
+    }
+
     public void encrypt(Context context, ActionInterface action) throws DepositException, IOException {
 
         Set<Resource> resources = ResourceService.fetchAll(context);
@@ -112,7 +140,7 @@ public class EncryptionService  {
         }
     }
 
-    public void encryptFile(File keyFile, File inputFile, File outputFile) {
+    public void encryptFile(File keyFile, File inputFile, File outputFile) throws DepositException {
 
         try {
 
@@ -123,6 +151,8 @@ public class EncryptionService  {
 
             logger.info("Could not encrypt file " + inputFile.getName());
             logger.info("ERR: " + e.toString());
+
+            throw new DepositException("Could not encrypt file " + inputFile.getName(), e);
         }
     }
 

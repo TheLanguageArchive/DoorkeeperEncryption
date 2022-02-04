@@ -68,6 +68,13 @@ public class EncryptResources extends AbstractAction {
 
             logger.info("ENCRYPTION ACTION FAILED");
             logger.info(e.toString());
+
+            if (e instanceof DepositException) {
+
+                // if deposit exception, throw again to stop archiving process
+                // and trigger the rollback
+                throw (DepositException) e;
+            }
         }
 
         return true;
