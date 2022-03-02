@@ -16,6 +16,9 @@
  */
 package nl.mpi.tla.flat.deposit.action.encryption;
 
+import nl.mpi.tla.flat.deposit.action.encryption.EncryptionService;
+import nl.mpi.tla.flat.deposit.action.encryption.ResourceService;
+
 import nl.mpi.tla.flat.deposit.action.ActionInterface;
 import nl.mpi.tla.flat.deposit.Context;
 import nl.mpi.tla.flat.deposit.DepositException;
@@ -32,6 +35,7 @@ import java.nio.file.Path;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.security.GeneralSecurityException;
 
@@ -47,6 +51,7 @@ public class EncryptionService  {
     private String kekUri = "hcvault://flat_mpi";
     private StreamingManager manager;
     private FilesMarked filesMarkedForEncryption;
+    private Path encryptionFiles;
     private Path credentials;
 
     /**
@@ -54,41 +59,14 @@ public class EncryptionService  {
      */
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(EncryptionService.class.getName());
 
-    public EncryptionService(String encryptionParam, String credentialsParam) throws DepositException {
+    public EncryptionService(String encryptionFilesParam, String encryptionMetadataParam, String encryptionCredentialsParam) throws DepositException {
 
         logger.info("CREATING ENCRYPTION SERVICE");
 
-        this.filesMarkedForEncryption = this.getFilesMarkedForEncryption(encryptionParam);
-        this.credentials              = this.getCredentials(credentialsParam);
+        this.filesMarkedForEncryption = this.getFilesMarkedForEncryption(encryptionMetadataParam);
+        this.encryptionFiles          = ResourceService.getEncryptionFilesDir(encryptionFilesParam);
+        this.credentials              = this.getCredentials(encryptionCredentialsParam);
         this.manager                  = this.getManager();
-    }
-
-    public void cleanup(Context context, ActionInterface action) throws DepositException, IOException {
-
-        Set<Resource> resources = ResourceService.fetchAll(context);
-
-        for (Resource res : resources) {
-
-            Path inputFile = res.getPath();
-
-            if (!this.filesMarkedForEncryption.isMarked(inputFile.toFile())) {
-
-                // file isn't marked for encryption
-                // no cleanup necessary
-                continue;
-            }
-
-            try {
-
-                Path originalFile = inputFile;
-                Path backupFile = Paths.get(originalFile.toFile().getAbsolutePath() + ".orig");
-
-                // cleaning up original file
-                Files.deleteIfExists(backupFile);
-
-            } catch (NoSuchFileException e) {}
-
-        }
     }
 
     public void encrypt(Context context, ActionInterface action) throws DepositException, IOException {
@@ -111,14 +89,21 @@ public class EncryptionService  {
 
             try {
 
-                Path keyFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".keyset.json");
-                Path outputFile = Paths.get(inputFile.toFile().getAbsolutePath() + ".enc");
+
+                // if encryption folder doesn't exists, create it
+                // folder used to save the backup file and keyset
+                if (!Files.exists(this.encryptionFiles)) {
+                    Files.createDirectory(this.encryptionFiles);
+                }
+
+                Path keyFile = Paths.get(this.encryptionFiles.toString(), inputFile.getFileName().toString() + ".keyset.json");
+                Path outputFile = Paths.get(inputFile.toString() + ".enc");
 
                 this.encryptFile(keyFile.toFile(), inputFile.toFile(), outputFile.toFile());
 
                 Path encryptedFile = outputFile;
                 Path originalFile = inputFile;
-                Path backupFile = Paths.get(originalFile.toFile().getAbsolutePath() + ".orig");
+                Path backupFile = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
 
                 // saving original resource to allow for rollback to revert to original if something goes wrong
                 context.registerRollbackEvent(action, "encryption.restore.original", "key", keyFile.toString(), "original", originalFile.toString(), "backup", backupFile.toString());
@@ -140,7 +125,47 @@ public class EncryptionService  {
         }
     }
 
-    public void encryptFile(File keyFile, File inputFile, File outputFile) throws DepositException {
+    public void cleanup(Context context, ActionInterface action) throws DepositException, IOException {
+
+        Set<Resource> resources = ResourceService.fetchAll(context);
+
+        for (Resource res : resources) {
+
+            Path inputFile = res.getPath();
+
+            if (!this.filesMarkedForEncryption.isMarked(inputFile.toFile())) {
+
+                // file isn't marked for encryption
+                // no cleanup necessary
+                continue;
+            }
+
+            try {
+
+                Path originalFile = inputFile;
+                Path backupFile = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
+                Path keyFile = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".keyset.json");
+                Path keyFileDestination = Paths.get(originalFile.toString() + ".keyset.json");
+
+                // cleaning up original file
+                Files.deleteIfExists(backupFile);
+
+                // move keyset to location of resource
+                Files.move(keyFile, keyFileDestination);
+
+                // delete encryption folder
+                try {
+                    Files.deleteIfExists(this.encryptionFiles);
+                } catch (DirectoryNotEmptyException e) {
+                    logger.error("Could not delete encryption folder: " + this.encryptionFiles.toString());
+                }
+
+            } catch (NoSuchFileException e) {}
+
+        }
+    }
+
+    private void encryptFile(File keyFile, File inputFile, File outputFile) throws DepositException {
 
         try {
 

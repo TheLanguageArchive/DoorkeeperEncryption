@@ -72,15 +72,12 @@ public class ResourceService {
     }
 
     /**
-     * transforming outputDir param in flat-deposit.xml into a usable Path object
+     * transforming encryption_files param in flat-deposit.xml into a usable Path object
      */
-    public static Path getResourcesDir(String resourcesDirParam) {
+    public static Path getEncryptionFilesDir(String encryptionFilesParam) {
 
         return Paths
-            .get(resourcesDirParam)
-            .toFile()
-            .getAbsoluteFile()
-            .toPath();
+            .get(encryptionFilesParam);
     }
 
     /**
@@ -89,16 +86,25 @@ public class ResourceService {
     public static Path getCredentials(String credentialsParam) {
 
         return Paths
-            .get(credentialsParam)
-            .toFile()
-            .getAbsoluteFile()
-            .toPath();
+            .get(credentialsParam);
     }
 
     public static FilesMarked getFilesMarkedForEncryption(String encryptionParam) throws IOException {
 
-        byte[] encoded = Files.readAllBytes(Paths.get(encryptionParam));
-        String json    = new String(encoded, StandardCharsets.UTF_8);
+        Path flatEncryptionFile = Paths.get(encryptionParam);
+        byte[] encoded;
+
+        if (flatEncryptionFile.toFile().exists()) {
+
+            encoded = Files.readAllBytes(flatEncryptionFile);
+
+        } else {
+
+            String raw = "{\"marked\": []}";
+            encoded = raw.getBytes();
+        }
+
+        String json = new String(encoded, StandardCharsets.UTF_8);
 
         ObjectMapper objectMapper = new ObjectMapper();
         return objectMapper.readValue(json, FilesMarked.class);

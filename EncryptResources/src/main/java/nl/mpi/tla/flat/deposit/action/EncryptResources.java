@@ -25,6 +25,7 @@ import org.slf4j.LoggerFactory;
 
 import java.util.List;
 import java.util.ListIterator;
+import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -52,14 +53,15 @@ public class EncryptResources extends AbstractAction {
 
         logger.info("STARTING ENCRYPTION ACTION");
 
-        String encryptionParam = this.getParameter("encryption", "./metadata/flat_encryption.json");
-        String credentialsParam  = this.getParameter("credentials");
+        String encryptionFilesParam       = this.getParameter("encryption_files", "./encryption");
+        String encryptionMetadataParam    = this.getParameter("encryption_metadata", "./metadata/flat_encryption.json");
+        String encryptionCredentialsParam = this.getParameter("encryption_credentials");
 
-        logger.info("FLAT ENCRYPTION PARAMS : ENCRYPTION: " + encryptionParam + ", CREDENTIALS: " + credentialsParam);
+        logger.info("FLAT ENCRYPTION PARAMS : ENCRYPTION file dir: " + encryptionFilesParam + ", metadata: " + encryptionMetadataParam + ", credentials: " + encryptionCredentialsParam);
 
         try {
 
-            EncryptionService encryptionService = new EncryptionService(encryptionParam, credentialsParam);
+            EncryptionService encryptionService = new EncryptionService(encryptionFilesParam, encryptionMetadataParam, encryptionCredentialsParam);
             encryptionService.encrypt(context, this);
 
             logger.info("FINISHED ENCRYPTION ACTION");
@@ -96,6 +98,7 @@ public class EncryptResources extends AbstractAction {
                     Path keyFile = Paths.get(Saxon.xpath2string(event, "param[@name='key']/@value"));
                     Path originalFile = Paths.get(Saxon.xpath2string(event, "param[@name='original']/@value"));
                     Path backupFile = Paths.get(Saxon.xpath2string(event, "param[@name='backup']/@value"));
+                    Path encryptionFolder = Paths.get(keyFile.toFile().getParentFile().getAbsolutePath());
 
                     if (keyFile.toFile().exists() && originalFile.toFile().exists() && backupFile.toFile().exists()) {
 
@@ -105,6 +108,12 @@ public class EncryptResources extends AbstractAction {
                         Files.deleteIfExists(keyFile);
                         Files.deleteIfExists(originalFile);
                         Files.move(backupFile, originalFile);
+
+                        try {
+                            Files.deleteIfExists(encryptionFolder);
+                        } catch (DirectoryNotEmptyException e) {
+                            logger.error("rollback action[" + this.getName() + "] event[" + type + "] encryption folder [" + encryptionFolder.toString() + "] is not empty, skipping deletion");
+                        }
 
                     } else {
                         logger.error("rollback action[" + this.getName() + "] event[" + type + "] failed removing key [" + keyFile.toString() + "], encrypted file [" + originalFile.toString() + "] and restoring original file [" + backupFile.toString() + "]!");

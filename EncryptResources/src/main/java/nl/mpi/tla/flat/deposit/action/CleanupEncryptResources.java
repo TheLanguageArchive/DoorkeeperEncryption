@@ -60,12 +60,13 @@ public class CleanupEncryptResources extends AbstractAction {
 
         logger.info("STARTING CLEANUP ENCRYPTION ACTION");
 
-        String encryptionParam = this.getParameter("encryption", "./metadata/flat_encryption.json");
-        String credentialsParam  = this.getParameter("credentials");
+        String encryptionFilesParam       = this.getParameter("encryption_files", "./encryption");
+        String encryptionMetadataParam    = this.getParameter("encryption_metadata", "./metadata/flat_encryption.json");
+        String encryptionCredentialsParam = this.getParameter("encryption_credentials");
 
         try {
 
-            EncryptionService encryptionService = new EncryptionService(encryptionParam, credentialsParam);
+            EncryptionService encryptionService = new EncryptionService(encryptionFilesParam, encryptionMetadataParam, encryptionCredentialsParam);
             encryptionService.cleanup(context, this);
 
             logger.info("FINISHED CLEANUP ENCRYPTION ACTION");
