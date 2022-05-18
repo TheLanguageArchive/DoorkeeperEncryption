@@ -29,6 +29,8 @@ import java.nio.file.DirectoryNotEmptyException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.io.StringWriter;
+import java.io.PrintWriter;
 
 import net.sf.saxon.s9api.XdmItem;
 
@@ -70,6 +72,12 @@ public class EncryptResources extends AbstractAction {
 
             logger.info("ENCRYPTION ACTION FAILED");
             logger.info(e.toString());
+
+	    StringWriter sw = new StringWriter();
+	    PrintWriter  pw = new PrintWriter(sw);
+	    e.printStackTrace(pw);
+
+	    logger.info(sw.toString());
 
             if (e instanceof DepositException) {
 
