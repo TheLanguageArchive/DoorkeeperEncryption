@@ -47,8 +47,13 @@ import org.slf4j.LoggerFactory;
 public class ResourceService {
 
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(ResourceService.class.getName());
+
     /**
      * Fetch all the resources inside context
+     *
+     * @param Context context
+     * @return Set<Resource>
+     * @throws DepositException
      */
     public static Set<Resource> fetchAll(Context context) throws DepositException {
 
@@ -64,6 +69,9 @@ public class ResourceService {
 
     /**
      * Check whether resource is allowed to be encrypted (ie @see{Resource.Status} is INSERT or UPDATE)
+     *
+     * @param Resource resource
+     * @return boolean
      */
     public static boolean allowed(Resource resource) {
 
@@ -73,6 +81,8 @@ public class ResourceService {
 
     /**
      * transforming encryption_files param in flat-deposit.xml into a usable Path object
+     * @param String encryptionFilesParam
+     * @return Path
      */
     public static Path getEncryptionFilesDir(String encryptionFilesParam) {
 
@@ -81,14 +91,12 @@ public class ResourceService {
     }
 
     /**
-     * transforming credentials param in flat-deposit.xml into a usable Path object
+     * Getting files marked for encryption
+     *
+     * @param String encryptionParam
+     * @return FilesMarked
+     * @throws IOException
      */
-    public static Path getCredentials(String credentialsParam) {
-
-        return Paths
-            .get(credentialsParam);
-    }
-
     public static FilesMarked getFilesMarkedForEncryption(String encryptionParam) throws IOException {
 
         Path flatEncryptionFile = Paths.get(encryptionParam);

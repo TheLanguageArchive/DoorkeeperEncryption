@@ -52,23 +52,45 @@ public class EncryptionService  {
     private StreamingManager manager;
     private FilesMarked filesMarkedForEncryption;
     private Path encryptionFiles;
-    private Path credentials;
+    private String vaultServiceAddress;
+    private String authServiceAddress;
 
     /**
      * Logger instance
      */
     private static final org.slf4j.Logger logger = LoggerFactory.getLogger(EncryptionService.class.getName());
 
-    public EncryptionService(String encryptionFilesParam, String encryptionMetadataParam, String encryptionCredentialsParam) throws DepositException {
+    /**
+     * Constructor
+     *
+     * @param String encryptionFilesParam
+     * @param String encryptionMetaDataParam
+     * @param String vaultServiceAddressParam
+     * @param String authServiceAddressParam
+     *
+     * @return EncryptionService
+     * @throws DepositException
+     */
+    public EncryptionService(String encryptionFilesParam, String encryptionMetadataParam, String vaultServiceAddressParam, String authServiceAddressParam) throws DepositException {
 
-        logger.info("CREATING ENCRYPTION SERVICE");
+        logger.info("CREATING ENCRYPTION SERVICE - encryptionFiles: " + encryptionFilesParam + " encryptionMetadata: " + encryptionMetadataParam + " vaultServiceAddress: " + vaultServiceAddressParam + " authServiceAddress: " + authServiceAddressParam);
 
         this.filesMarkedForEncryption = this.getFilesMarkedForEncryption(encryptionMetadataParam);
         this.encryptionFiles          = ResourceService.getEncryptionFilesDir(encryptionFilesParam);
-        this.credentials              = this.getCredentials(encryptionCredentialsParam);
+        this.vaultServiceAddress      = vaultServiceAddressParam;
+        this.authServiceAddress       = authServiceAddressParam;
         this.manager                  = this.getManager();
     }
 
+    /**
+     * Encrypt files marked for encryption through doorkeeper
+     *
+     * @param Context context
+     * @param ActionInterface action
+     *
+     * @return void
+     * @throws DepositException, IOException
+     */
     public void encrypt(Context context, ActionInterface action) throws DepositException, IOException {
 
         Set<Resource> resources = ResourceService.fetchAll(context);
@@ -125,6 +147,16 @@ public class EncryptionService  {
         }
     }
 
+    /**
+     * When encrypting files through doorkeeper, we also create a backup of the original file.
+     * This action will clear these backups when successful and restore the original file when doorkeeper fails.
+     *
+     * @param Context context
+     * @param ActionInterface action
+     *
+     * @return void
+     * @throws DepositException, IOException
+     */
     public void cleanup(Context context, ActionInterface action) throws DepositException, IOException {
 
         Set<Resource> resources = ResourceService.fetchAll(context);
@@ -165,6 +197,16 @@ public class EncryptionService  {
         }
     }
 
+    /**
+     * Encrypt a file
+     *
+     * @param File keyFile
+     * @param File inputFile
+     * @param File outputFile
+     *
+     * @return void
+     * @throws DepositException
+     */
     private void encryptFile(File keyFile, File inputFile, File outputFile) throws DepositException {
 
         try {
@@ -181,12 +223,18 @@ public class EncryptionService  {
         }
     }
 
+    /**
+     * StreamingManager Factory
+     *
+     * @return StreamingManager
+     * @throws DepositException
+     */
     private StreamingManager getManager() throws DepositException {
 
         try {
 
             logger.info("Connection encryption manager for KEK: " + this.kekUri);
-            return new StreamingManager(this.kekUri, this.credentials.toString());
+            return new StreamingManager(this.kekUri, this.vaultServiceAddress, this.authServiceAddress);
 
         } catch (GeneralSecurityException e) {
 
@@ -198,18 +246,11 @@ public class EncryptionService  {
     }
 
     /**
-     * Get credentials
-     */
-    private Path getCredentials(String credentialsParam) throws DepositException {
-
-        Path credentials = ResourceService.getCredentials(credentialsParam);
-        logger.info("ENCRYPTION CREDENTIALS PARAMETER: " + credentialsParam);
-
-        return credentials;
-    }
-
-    /**
-     * getting files marked for encryption
+     * getting files marked for encryption, if no files are marked, an empty FilesMarked instance is returned
+     *
+     * @param String encryptionParam
+     *
+     * @return FilesMarked
      */
     private FilesMarked getFilesMarkedForEncryption(String encryptionParam) {
 
