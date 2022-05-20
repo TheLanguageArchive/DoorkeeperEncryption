@@ -28,6 +28,8 @@ import java.util.ListIterator;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.io.StringWriter;
+import java.io.PrintWriter;
 
 import net.sf.saxon.s9api.XdmItem;
 
@@ -46,6 +48,11 @@ public class CleanupEncryptResources extends AbstractAction {
 
     /**
      * Encrypting resources inside context
+     *
+     * @param Context context
+     *
+     * @return boolean
+     * @throws DepositException
      */
     @Override
     public boolean perform(Context context) throws DepositException {
@@ -58,15 +65,16 @@ public class CleanupEncryptResources extends AbstractAction {
             return true;
         }
 
-        logger.info("STARTING CLEANUP ENCRYPTION ACTION");
+        String encryptionFilesParam     = this.getParameter("encryption_files", "./encryption");
+        String encryptionMetadataParam  = this.getParameter("encryption_metadata", "./metadata/flat_encryption.json");
+        String vaultServiceAddressParam = this.getParameter("vault_service_address", "http://vault:8200");
+        String authServiceAddressParam  = this.getParameter("auth_service_address", "http://vodapi:3003/auth");
 
-        String encryptionFilesParam       = this.getParameter("encryption_files", "./encryption");
-        String encryptionMetadataParam    = this.getParameter("encryption_metadata", "./metadata/flat_encryption.json");
-        String encryptionCredentialsParam = this.getParameter("encryption_credentials");
+        logger.info("STARTING CLEANUP ENCRYPTION ACTION - encryptionFilesParam: " + encryptionFilesParam + " encryptionMetadataParam: " + encryptionMetadataParam + " vaultServiceAddressParam: " + vaultServiceAddressParam + " authServiceAddressParam" + authServiceAddressParam);
 
         try {
 
-            EncryptionService encryptionService = new EncryptionService(encryptionFilesParam, encryptionMetadataParam, encryptionCredentialsParam);
+            EncryptionService encryptionService = new EncryptionService(encryptionFilesParam, encryptionMetadataParam, vaultServiceAddressParam, authServiceAddressParam);
             encryptionService.cleanup(context, this);
 
             logger.info("FINISHED CLEANUP ENCRYPTION ACTION");
@@ -75,6 +83,19 @@ public class CleanupEncryptResources extends AbstractAction {
 
             logger.info("CLEANUP ENCRYPTION ACTION FAILED");
             logger.info(e.toString());
+
+            StringWriter sw = new StringWriter();
+            PrintWriter  pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
+
+            logger.info(sw.toString());
+
+            if (!(e instanceof DepositException)) {
+
+                // if not deposit exception, throw again to ensure stopping the archiving process
+                // and trigger the rollback
+                throw new DepositException(e);
+            }
         }
 
         return true;

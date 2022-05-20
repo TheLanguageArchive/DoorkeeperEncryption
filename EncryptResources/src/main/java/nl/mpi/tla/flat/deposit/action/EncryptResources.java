@@ -49,21 +49,27 @@ public class EncryptResources extends AbstractAction {
 
     /**
      * Encrypting resources inside context
+     *
+     * @param Context context
+     *
+     * @return boolean
+     * @throws DepositException
      */
     @Override
     public boolean perform(Context context) throws DepositException {
 
         logger.info("STARTING ENCRYPTION ACTION");
 
-        String encryptionFilesParam       = this.getParameter("encryption_files", "./encryption");
-        String encryptionMetadataParam    = this.getParameter("encryption_metadata", "./metadata/flat_encryption.json");
-        String encryptionCredentialsParam = this.getParameter("encryption_credentials");
+        String encryptionFilesParam     = this.getParameter("encryption_files", "./encryption");
+        String encryptionMetadataParam  = this.getParameter("encryption_metadata", "./metadata/flat_encryption.json");
+        String vaultServiceAddressParam = this.getParameter("vault_service_address", "http://vault:8200");
+        String authServiceAddressParam  = this.getParameter("auth_service_address", "http://vodapi:3003/auth");
 
-        logger.info("FLAT ENCRYPTION PARAMS : ENCRYPTION file dir: " + encryptionFilesParam + ", metadata: " + encryptionMetadataParam + ", credentials: " + encryptionCredentialsParam);
+        logger.info("FLAT ENCRYPTION PARAMS : ENCRYPTION file dir: " + encryptionFilesParam + ", metadata: " + encryptionMetadataParam + ", vault service address: " + vaultServiceAddressParam + ", auth service address: " + authServiceAddressParam);
 
         try {
 
-            EncryptionService encryptionService = new EncryptionService(encryptionFilesParam, encryptionMetadataParam, encryptionCredentialsParam);
+            EncryptionService encryptionService = new EncryptionService(encryptionFilesParam, encryptionMetadataParam, vaultServiceAddressParam, authServiceAddressParam);
             encryptionService.encrypt(context, this);
 
             logger.info("FINISHED ENCRYPTION ACTION");
@@ -73,17 +79,17 @@ public class EncryptResources extends AbstractAction {
             logger.info("ENCRYPTION ACTION FAILED");
             logger.info(e.toString());
 
-	    StringWriter sw = new StringWriter();
-	    PrintWriter  pw = new PrintWriter(sw);
-	    e.printStackTrace(pw);
+            StringWriter sw = new StringWriter();
+            PrintWriter  pw = new PrintWriter(sw);
+            e.printStackTrace(pw);
 
-	    logger.info(sw.toString());
+            logger.info(sw.toString());
 
-            if (e instanceof DepositException) {
+            if (!(e instanceof DepositException)) {
 
-                // if deposit exception, throw again to stop archiving process
+                // if not deposit exception, throw again to ensure stopping the archiving process
                 // and trigger the rollback
-                throw (DepositException) e;
+                throw new DepositException(e);
             }
         }
 
