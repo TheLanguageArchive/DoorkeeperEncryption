@@ -57,10 +57,14 @@ public class CleanupEncryptResources extends AbstractAction {
     @Override
     public boolean perform(Context context) throws DepositException {
 
+        logger.info("[CleanupEncryptResources] Cleaning up encrypted resources - started");
         Boolean status = context.getFlow().getStatus();
+
+        logger.info("[CleanupEncryptResources] FLOW STATUS = " + status + ", MESSAGE = " + context.getFlow().getStatusMessage() + ", toString = " + (status == null ? "null" : status.toString()));
 
         if (status == null || !status.booleanValue()) {
 
+            logger.info("[CleanupEncryptResources] Archiving was not successful, no cleanup required");
             // the archiving was not successful, so no cleanup is needed
             return true;
         }
@@ -94,6 +98,7 @@ public class CleanupEncryptResources extends AbstractAction {
 
                 // if not deposit exception, throw again to ensure stopping the archiving process
                 // and trigger the rollback
+                logger.info("[CleanupEncryptResources] Exception that is not a DepositException, throwing again");
                 throw new DepositException(e);
             }
         }

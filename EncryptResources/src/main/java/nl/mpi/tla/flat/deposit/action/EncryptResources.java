@@ -99,6 +99,7 @@ public class EncryptResources extends AbstractAction {
     @Override
     public void rollback(Context context, List<XdmItem> events) {
 
+        logger.info("[rollback.EncryptResources] rollback started");
         for (ListIterator<XdmItem> iter = events.listIterator(events.size());iter.hasPrevious();) {
 
             XdmItem event = iter.previous();
@@ -107,16 +108,25 @@ public class EncryptResources extends AbstractAction {
 
                 String type = Saxon.xpath2string(event, "@type");
 
+                logger.info("[rollback.EncryptResources] rollback event type=" + type);
+
                 if (type.equals("encryption.restore.original")) {
+
+                    logger.info("[rollback.EncryptResources] rollback event encryption.restore.original detected and running");
 
                     Path keyFile = Paths.get(Saxon.xpath2string(event, "param[@name='key']/@value"));
                     Path originalFile = Paths.get(Saxon.xpath2string(event, "param[@name='original']/@value"));
                     Path backupFile = Paths.get(Saxon.xpath2string(event, "param[@name='backup']/@value"));
                     Path encryptionFolder = Paths.get(keyFile.toFile().getParentFile().getAbsolutePath());
 
+                    logger.info("[rollback.EncryptResources] encryption folder = " + encryptionFolder);
+                    logger.info("[rollback.EncryptResources] keyFile = " + keyFile.toString() + ", exists = " + keyFile.toFile().exists());
+                    logger.info("[rollback.EncryptResources] originalFile = " + originalFile.toString() + ", exists = " + originalFile.toFile().exists());
+                    logger.info("[rollback.EncryptResources] backupFile = " + backupFile.toString() + ", exists = " + backupFile.toFile().exists());
+
                     if (keyFile.toFile().exists() && originalFile.toFile().exists() && backupFile.toFile().exists()) {
 
-                        logger.debug("rollback action[" + this.getName() + "] event[" + type + "] removing removing key [" + keyFile.toString() + "], encrypted file [" + originalFile.toString() + "] and restoring original file [" + backupFile.toString() + "]");
+                        logger.info("[rollback.EncryptResources] rollback action[" + this.getName() + "] event[" + type + "] removing key [" + keyFile.toString() + "], encrypted file [" + originalFile.toString() + "] and restoring original file [" + backupFile.toString() + "]");
 
                         // clearing all the encryption files
                         Files.deleteIfExists(keyFile);
@@ -126,18 +136,33 @@ public class EncryptResources extends AbstractAction {
                         try {
                             Files.deleteIfExists(encryptionFolder);
                         } catch (DirectoryNotEmptyException e) {
+
+                            logger.info("[rollback.EncryptResources] ERRROR encryptionFolder could not be deleted", e);
                             logger.error("rollback action[" + this.getName() + "] event[" + type + "] encryption folder [" + encryptionFolder.toString() + "] is not empty, skipping deletion");
                         }
 
                     } else {
+
+                        logger.info("[rollback.EncryptResources] one of the files mentioned above could not be found, check the exists flag next to filename");
                         logger.error("rollback action[" + this.getName() + "] event[" + type + "] failed removing key [" + keyFile.toString() + "], encrypted file [" + originalFile.toString() + "] and restoring original file [" + backupFile.toString() + "]!");
                     }
 
                 } else {
+
+                    logger.info("[rollback.EncryptResources] rollback event type=' + type + '] is not supported");
                     logger.error("rollback action[" + this.getName() + "] rollback unknown event[" + type +"]!");
                 }
 
             } catch (Exception ex) {
+
+                logger.info("[rollback.EncryptResources] rollback failed because of exception: ", ex);
+
+                StringWriter sw = new StringWriter();
+                PrintWriter  pw = new PrintWriter(sw);
+
+                ex.printStackTrace(pw);
+                logger.info("[rollback.EncryptResources] stacktrace: \n\n " + sw.toString());
+
                 logger.error("rollback action[" + this.getName() + "] event[" + event + "] failed!", ex);
             }
         }
