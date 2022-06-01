@@ -184,15 +184,14 @@ public class EncryptionService  {
             try {
 
                 Path originalFile = inputFile;
-                Path backupFile = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
-                Path keyFile = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".keyset.json");
-                Path keyFileDestination = Paths.get(originalFile.toString() + ".keyset.json");
+                Path keyFile      = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".keyset.json");
+                Path backupFile   = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
 
-                // cleaning up original file
-                Files.deleteIfExists(backupFile);
+                // moving original file back
+                Files.move(backupFile, originalFile);
 
-                // move keyset to location of resource
-                Files.move(keyFile, keyFileDestination);
+                // cleaning up keyfile
+                Files.deleteIfExists(keyFile);
 
                 // delete encryption folder
                 try {
@@ -201,8 +200,11 @@ public class EncryptionService  {
                     logger.error("Could not delete encryption folder: " + this.encryptionFiles.toString());
                 }
 
-            } catch (NoSuchFileException e) {}
+            } catch (NoSuchFileException e) {
 
+                logger.info("FILE ENCRYPTION CLEANUP NOT DONE, BECAUSE NoSuchFileException was thrown, rethrow exception wrapped in DepositException", e);
+                throw new DepositException("File not found ", e);
+            }
         }
     }
 
