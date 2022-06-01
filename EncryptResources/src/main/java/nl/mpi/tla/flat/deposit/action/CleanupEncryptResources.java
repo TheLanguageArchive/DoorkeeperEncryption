@@ -60,7 +60,7 @@ public class CleanupEncryptResources extends AbstractAction {
         logger.info("[CleanupEncryptResources] Cleaning up encrypted resources - started");
         Boolean status = context.getFlow().getStatus();
 
-        logger.info("[CleanupEncryptResources] FLOW STATUS = " + status + ", MESSAGE = " + context.getFlow().getStatusMessage() + ", toString = " + (status == null ? "null" : status.toString()));
+        logger.info("[CleanupEncryptResources] FLOW STATUS = " + status + ", toString = " + (status == null ? "null" : status.toString()));
 
         if (status == null || !status.booleanValue()) {
 
