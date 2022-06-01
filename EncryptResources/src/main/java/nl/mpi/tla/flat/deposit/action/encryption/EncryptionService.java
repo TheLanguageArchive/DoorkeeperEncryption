@@ -147,9 +147,7 @@ public class EncryptionService  {
                 Files.deleteIfExists(encryptedFile);
 
             } catch (NoSuchFileException e) {
-
-                logger.info("FILE WAS NOT ENCRYPTED BECAUSE NoSuchFileException was thrown, rethrow exception wrapped in DepositException", e);
-                throw new DepositException("File not found ", e);
+                logger.info("FILE WAS NOT ENCRYPTED BECAUSE NoSuchFileException WAS THROWN", e);
             }
         }
 
@@ -201,9 +199,7 @@ public class EncryptionService  {
                 }
 
             } catch (NoSuchFileException e) {
-
-                logger.info("FILE ENCRYPTION CLEANUP NOT DONE, BECAUSE NoSuchFileException was thrown, rethrow exception wrapped in DepositException", e);
-                throw new DepositException("File not found ", e);
+                logger.info("FILE ENCRYPTION CLEANUP NOT DONE, BECAUSE NoSuchFileException was thrown", e);
             }
         }
     }
