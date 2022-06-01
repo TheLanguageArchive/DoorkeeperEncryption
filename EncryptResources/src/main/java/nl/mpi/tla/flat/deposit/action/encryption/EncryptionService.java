@@ -93,6 +93,8 @@ public class EncryptionService  {
      */
     public void encrypt(Context context, ActionInterface action) throws DepositException, IOException {
 
+        logger.info("STARTING EncryptionService#encrypt");
+
         Set<Resource> resources = ResourceService.fetchAll(context);
 
         for (Resource res : resources) {
@@ -115,36 +117,43 @@ public class EncryptionService  {
                 // if encryption folder doesn't exists, create it
                 // folder used to save the backup file and keyset
                 if (!Files.exists(this.encryptionFiles)) {
+
+                    logger.info("CREATING ENCRYPTION FOLDER");
                     Files.createDirectory(this.encryptionFiles);
                 }
 
-                Path keyFile = Paths.get(this.encryptionFiles.toString(), inputFile.getFileName().toString() + ".keyset.json");
-                Path outputFile = Paths.get(inputFile.toString() + ".enc");
+                Path originalFile  = inputFile;
+                Path keyFile       = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".keyset.json");
+                Path encryptedFile = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".enc");
+                Path backupFile    = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
 
-                this.encryptFile(keyFile.toFile(), inputFile.toFile(), outputFile.toFile());
-
-                Path encryptedFile = outputFile;
-                Path originalFile = inputFile;
-                Path backupFile = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
-
-                // saving original resource to allow for rollback to revert to original if something goes wrong
-                context.registerRollbackEvent(action, "encryption.restore.original", "key", keyFile.toString(), "original", originalFile.toString(), "backup", backupFile.toString());
+                logger.info("FILES NECESSARY FOR ENCRYPTION: originalFile = " + originalFile + ", keyFile = " + keyFile + ", encryptedFile =  " + encryptedFile + ", backupFile = " + backupFile);
 
                 Files.copy(originalFile, backupFile, StandardCopyOption.COPY_ATTRIBUTES);
+
+                this.encryptFile(keyFile.toFile(), originalFile.toFile(), encryptedFile.toFile());
 
                 // replacing original resource with encrypted one
                 Files.deleteIfExists(originalFile);
                 Files.move(encryptedFile, originalFile);
 
-                logger.info("ENCRYPTED FILE: " + originalFile + ", KEY FILE: " + keyFile);
-                logger.info("FILE WAS SUCCESSFULLY ENCRYPTED: " + outputFile);
+                // saving original resource to allow for rollback to revert to original if something goes wrong
+                context.registerRollbackEvent(action, "encryption.restore.original", "key", keyFile.toString(), "original", originalFile.toString(), "backup", backupFile.toString());
+
+                logger.info("FILE ENCRYPTED AND ROLLBACK REGISTERED FOR ENCRYPTED FILE = " + encryptedFile);
+                logger.info("FILE WAS SUCCESSFULLY ENCRYPTED");
 
                 // cleaning up by removing encrypted output file
-                Files.deleteIfExists(outputFile);
+                Files.deleteIfExists(encryptedFile);
 
-            } catch (NoSuchFileException e) {}
+            } catch (NoSuchFileException e) {
 
+                logger.info("FILE WAS NOT ENCRYPTED BECAUSE NoSuchFileException was thrown, rethrow exception wrapped in DepositException", e);
+                throw new DepositException("File not found ", e);
+            }
         }
+
+        logger.info("ENDING EncryptionService#encrypt");
     }
 
     /**
@@ -265,3 +274,4 @@ public class EncryptionService  {
         return new FilesMarked();
     }
 }
+
