@@ -9,9 +9,10 @@ import org.apache.commons.codec.digest.DigestUtils;
 public class FilesMarked {
 
     private String[] marked = {};
+    private String token = "";
 
     public String[] getMarked() {
-        return marked;
+        return this.marked;
     }
 
     public void setMarked(String[] marked) {
@@ -22,6 +23,14 @@ public class FilesMarked {
 
       String hex = this.generateMd5(file);
       return Arrays.asList(this.marked).contains(hex);
+    }
+
+    public String getToken()  {
+      return this.token;
+    }
+
+    public void setToken(String token) {
+      this.token = token;
     }
 
     private String generateMd5(File file) {

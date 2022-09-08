@@ -156,7 +156,66 @@ public class EncryptionService  {
 
     /**
      * When encrypting files through doorkeeper, we also create a backup of the original file.
-     * This action will clear these backups when successful and restore the original file when doorkeeper fails.
+     * This action will restore these backups when doorkeeper fails.
+     *
+     * @param Context context
+     * @param ActionInterface action
+     *
+     * @return void
+     * @throws DepositException, IOException
+     */
+    public void restore(Context context, ActionInterface action) throws DepositException, IOException {
+
+        Set<Resource> resources = ResourceService.fetchAll(context);
+
+        for (Resource res : resources) {
+
+            Path inputFile = res.getPath();
+
+            if (!this.filesMarkedForEncryption.isMarked(inputFile.toFile())) {
+
+                // file isn't marked for encryption
+                // no restore necessary
+                continue;
+            }
+
+            try {
+
+                Path originalFile = inputFile;
+                Path keyFile      = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".keyset.json");
+                Path backupFile   = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
+
+                if (!Files.exists(backupFile)) {
+
+                    // backup file doesn't exist, restore is not necessary
+                    continue;
+                }
+
+                // moving original file back
+                Files.deleteIfExists(originalFile);
+                Files.move(backupFile, originalFile);
+
+                // cleaning up keyfile
+                Files.deleteIfExists(keyFile);
+
+                // delete encryption folder
+                try {
+                    Files.deleteIfExists(this.encryptionFiles);
+                } catch (DirectoryNotEmptyException e) {
+                    logger.error("Could not delete encryption folder: " + this.encryptionFiles.toString());
+                }
+
+            } catch (NoSuchFileException e) {
+
+                logger.info("FILE ENCRYPTION RESTORE FAILED, BECAUSE [" + e.getFile() + "] was not found");
+                logger.debug("NoSuchFileException", e);
+            }
+        }
+    }
+
+    /**
+     * When encrypting files through doorkeeper, we also create a backup of the original file.
+     * This action will clear these backups when doorkeeper is successful.
      *
      * @param Context context
      * @param ActionInterface action
@@ -181,12 +240,22 @@ public class EncryptionService  {
 
             try {
 
-                Path originalFile = inputFile;
-                Path keyFile      = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".keyset.json");
-                Path backupFile   = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
+                Path originalFile           = inputFile;
+                Path keyFile                = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".keyset.json");
+                Path keyFileDestinationFile = Paths.get(inputFile.getParent().toString(), originalFile.getFileName().toString() + ".keyset.json");
+                Path backupFile             = Paths.get(this.encryptionFiles.toString(), originalFile.getFileName().toString() + ".orig");
 
-                // moving original file back
-                Files.move(backupFile, originalFile);
+                if (!Files.exists(backupFile)) {
+
+                    // backup file doesn't exist, cleanup is not necessary
+                    continue;
+                }
+
+                // moving keyfile to same destination as resource
+                Files.move(keyFile, keyFileDestinationFile);
+
+                // cleaning up backup file
+                Files.deleteIfExists(backupFile);
 
                 // cleaning up keyfile
                 Files.deleteIfExists(keyFile);
@@ -199,7 +268,9 @@ public class EncryptionService  {
                 }
 
             } catch (NoSuchFileException e) {
-                logger.info("FILE ENCRYPTION CLEANUP NOT DONE, BECAUSE NoSuchFileException was thrown", e);
+
+                logger.info("FILE ENCRYPTION CLEANUP NOT DONE, BECAUSE [" + e.getFile() + "] was not found");
+                logger.debug("NoSuchFileException", e);
             }
         }
     }
@@ -240,8 +311,12 @@ public class EncryptionService  {
 
         try {
 
-            logger.info("Connection encryption manager for KEK: " + this.kekUri);
-            return new StreamingManager(this.kekUri, this.vaultServiceAddress, this.authServiceAddress);
+            logger.info("Connection encryption manager for KEK: " + this.kekUri + ", appToken: " + this.filesMarkedForEncryption.getToken());
+
+            StreamingManager manager = new StreamingManager(this.kekUri, this.vaultServiceAddress, this.authServiceAddress);
+            manager.start(this.filesMarkedForEncryption.getToken());
+
+            return manager;
 
         } catch (GeneralSecurityException e) {
 
@@ -272,4 +347,3 @@ public class EncryptionService  {
         return new FilesMarked();
     }
 }
-
