@@ -108,7 +108,7 @@ public class ResourceService {
 
         } else {
 
-            String raw = "{\"marked\": []}";
+            String raw = "{\"marked\": [], \"token\": \"\"}";
             encoded = raw.getBytes();
         }
 

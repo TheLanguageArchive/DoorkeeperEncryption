@@ -62,13 +62,6 @@ public class CleanupEncryptResources extends AbstractAction {
 
         logger.info("[CleanupEncryptResources] FLOW STATUS = " + status + ", toString = " + (status == null ? "null" : status.toString()));
 
-        if (status == null || !status.booleanValue()) {
-
-            logger.info("[CleanupEncryptResources] Archiving was not successful, no cleanup required");
-            // the archiving was not successful, so no cleanup is needed
-            return true;
-        }
-
         String encryptionFilesParam     = this.getParameter("encryption_files", "./encryption");
         String encryptionMetadataParam  = this.getParameter("encryption_metadata", "./metadata/flat_encryption.json");
         String vaultServiceAddressParam = this.getParameter("vault_service_address", "http://vault:8200");
@@ -79,7 +72,19 @@ public class CleanupEncryptResources extends AbstractAction {
         try {
 
             EncryptionService encryptionService = new EncryptionService(encryptionFilesParam, encryptionMetadataParam, vaultServiceAddressParam, authServiceAddressParam);
-            encryptionService.cleanup(context, this);
+
+            if (status == null || !status.booleanValue()) {
+
+                // the archiving was not successful, so run restore
+                logger.info("[CleanupEncryptResources] Archiving was not successful, run restore");
+                encryptionService.restore(context, this);
+
+            } else if (status.booleanValue() == true) {
+
+                // the archiving was successful, clean up
+                logger.info("[CleanupEncryptResources] Archiving was successful, run cleanup");
+                encryptionService.cleanup(context, this);
+            }
 
             logger.info("FINISHED CLEANUP ENCRYPTION ACTION");
 
